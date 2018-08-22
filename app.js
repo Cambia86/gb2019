@@ -1,8 +1,9 @@
 
 
-const express = require('express');
-const bodyParser = require('body-parser');
+const express = require('express'); 
+const bodyParser = require('body-parser'); 
 const competition = require('./routes/competition.route'); // Imports routes for the products
+const match = require('./routes/match.route'); 
 const app = express();
 
 // Set up mongoose connection
@@ -22,9 +23,13 @@ app.use(bodyParser.urlencoded({extended: false}));
 
 
 app.use('/competition', competition);
+app.use('/match', match);
 
 let port = 3001;
 app.listen(port, () => {
     console.log('Server is up and running on port numner ' + port);
 });
+
+
+
 

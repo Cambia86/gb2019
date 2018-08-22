@@ -10,21 +10,25 @@ var getCompetition = function (req, res) {
 }
 
 
-var saveCompetition = function (req, res) {
-    let comp = new Competition(
-        {
-            name: req.body.name,
-            league: req.body.league,
-            year: req.body.year
-        }
-    );
+var saveCompetition = function (competition) {
 
-    comp.save(function (err) {
-        if (err) {
-            return next(err);
-        }
-        res.send('Product Created successfully')
+    competition.map(data=>{
+        let comp = new Competition(
+            {
+                id:data.id,
+                name:data.name
+            }
+        );
+    
+        comp.save(function (err) {
+            if (err) {
+                return next(err);
+            }
+            
+        })
     })
+
+    
 }
 
 var updateCompetition= function (req, res) {
