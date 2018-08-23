@@ -34,7 +34,24 @@ var getMatch=function(competitionId,callback){
 }
 
 
+var getStanding=function(competitionId,callback){
+    return request({
+        method: 'GET',
+        url: 'http://api.football-data.org/v2/competitions/'+competitionId+'/standings',
+        json: true,
+        headers: {
+            'X-Auth-Token': '041b645e8f1c477fb0630e4b1fed932e',
+            'X-Response-Control': 'full'
+        }
+    }, function (error, response, body) {
+         if (error) { return console.log(error); }
+        callback( body)
+    });
+}
+
+
 module.exports = {
     getCompetition: getCompetition,
-    getMatch:getMatch
+    getMatch:getMatch,
+    getStanding:getStanding
 }

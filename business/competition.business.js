@@ -7,6 +7,9 @@ var getCompetition = function (req, res) {
         if (err) return next(err);
         return competition
     })
+
+
+ 
 }
 
 
