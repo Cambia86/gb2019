@@ -21,9 +21,4 @@ exports.standing_get = function (req, res) {
         }
 
     })
-    
-
-       
-
-
 }

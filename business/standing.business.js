@@ -2,11 +2,6 @@ const Standing = require('../models/standing.model');
 
 
 var getStanding=function(competitionId ,cb){
-//    Standing.find({ competitionId: competitionId}, function (err, competition) {
-//         if (err) return next(err);
-//         return competition
-//     });
-   
     return Standing.find({competitionId: competitionId}).exec(function(err, result) {
         if (!err) {
           // handle result

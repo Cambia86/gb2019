@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const competition = require('./routes/competition.route'); // Imports routes for the products
 const match = require('./routes/match.route'); 
 const standing= require('./routes/standing.route'); 
+const prevision = require('./routes/prevision.route')
 const app = express();
 
 // Set up mongoose connection
@@ -26,6 +27,7 @@ app.use(bodyParser.urlencoded({extended: false}));
 app.use('/competition', competition);
 app.use('/match', match);
 app.use('/standing', standing);
+app.use('/prevision', prevision);
 
 let port = 3001;
 app.listen(port, () => {
