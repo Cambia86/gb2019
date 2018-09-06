@@ -15,7 +15,9 @@ var standingSchema = new Schema({
     lost: String,
     playedGames: String,
     points: String,
-    position: String
+    position: String,
+    teamId:String,
+    teamName:String
 });
 
 var Standing = mongoose.model('Standing', standingSchema);

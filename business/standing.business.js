@@ -1,27 +1,28 @@
 const Standing = require('../models/standing.model');
 
 
-var getStanding=function(competitionId ,cb){
-    return Standing.find({competitionId: competitionId}).exec(function(err, result) {
+var getStanding = function (competitionId, cb) {
+    return Standing.find({ competitionId: competitionId }).exec(function (err, result) {
         if (!err) {
-          // handle result
-          cb(result) 
+            // handle result
+            cb(result)
         } else {
-            cb(error) 
-          // error handling
+            cb(error)
+            // error handling
         };
-      });
+    });
 }
 
-var saveStanding = function (competition, standing,seasonId) {
+var saveStanding = function (competition, standing, seasonId) {
     standing.map(data => {
         let stand = new Standing(
             {
                 id: data.id,
                 competitionId: competition.id,
                 competitionName: competition.name,
-                seasonId:seasonId,
-
+                seasonId: seasonId,
+                teamId: data.team.id,
+                teamName: data.team.name,
                 draw: data.draw,
                 goalDifference: data.goalDifference,
                 goalsAgainst: data.goalsAgainst,
@@ -44,6 +45,6 @@ var saveStanding = function (competition, standing,seasonId) {
 }
 
 module.exports = {
-    getStanding:getStanding,
+    getStanding: getStanding,
     saveStanding: saveStanding
 }

@@ -9,6 +9,22 @@ var getMatch = function (req, res) {
     })
 }
 
+var getAllMatchByCompetitionId=function(req, res) {
+    let compIdid = req.params.id
+    return Match.find({competitionId:compIdid}, function (err, match) {
+        if (err) return next(err);
+        return match
+    })
+}
+
+var getAllMatchByCompetitionIdAndMatchDay=function(compId, matchDay) {
+    // let compIdid = req.params.id
+    return Match.find({competitionId:compId,matchday:matchDay}, function (err, match) {
+        if (err) return next(err);
+        return match
+    })
+}
+
 var saveMatch= function(competition,match){
     match.map(data=>{
         let comp = new Match(
@@ -35,5 +51,7 @@ var saveMatch= function(competition,match){
 
 module.exports = {
     getMatch: getMatch,
-    saveMatch: saveMatch
+    saveMatch: saveMatch,
+    getAllMatchByCompetitionId:getAllMatchByCompetitionId,
+    getAllMatchByCompetitionIdAndMatchDay:getAllMatchByCompetitionIdAndMatchDay
 }
