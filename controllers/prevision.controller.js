@@ -32,6 +32,9 @@ exports.get_prevision = function (req, res) {
             let matchDay = parseInt(currentStanding[0].playedGames) + 1
             match_business.getAllMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(nextMatch => {
                 if (nextMatch && nextMatch.length > 0) {
+
+                    previsionList=[]
+
                     nextMatch.map(match => {
                         //hometeam
                         let homeTeam = {
@@ -70,58 +73,97 @@ exports.get_prevision = function (req, res) {
                         // poisson calculator
                         let poiss = poissonCalculator(2, 2.5)
 
-                        let prevision = {
-                            homeTeam: {
-                                id: match.homeTeam.id,
-                                name: match.homeTeam.name,
-                            },
-                            awayTeam: {
-                                id: match.awayTeam.id,
-                                name: match.awayTeam.name,
-                            },
-                            matchDay: matchDay,
-                            winHome: 0,
-                            draw: 0,
-                            winAway: 0
-                        }
+                        let prevision = calculateProbability(match, matchDay, homeTeam, awayTeam);
 
-                        // calcolo sui gol fatti
-                        for(i=0;i<=5;i++){
-                            for(y=0;y<=5;y++){
-                                let poissonHome=poissonCalculator(i, parseFloat( homeTeam.mediaGolFatti))
-                                let poissonAway=poissonCalculator(y, parseFloat(  awayTeam.mediaGolFatti))
-
-                                if(i>y){
-                                    prevision.winHome=parseFloat(prevision.winHome)+( parseFloat(poissonHome)*parseFloat(poissonAway))
-                                }
-                                if(i<y){
-                                    prevision.winAway=parseFloat(prevision.winHome)+(parseFloat(poissonHome)*parseFloat(poissonAway))
-                                }
-                                if(i==y){
-                                    prevision.draw=parseFloat(prevision.winHome)+(parseFloat(poissonHome)*parseFloat(poissonAway))
-                                }
-                            } 
-                        }
+                        previsionList.push(prevision)
 
                     })
-
-
-
-                    res.send(currentStanding);
+                    res.send(previsionList);
                 }
 
             })
-
-
-
-
-
-
-
 
         }
     })
 
 
     // res.send(prevision_business.getPrevision(idcomp,null))
+}
+
+function calculateProbability(match, matchDay, homeTeam, awayTeam) {
+    let prevision = {
+        homeTeam: {
+            id: match.homeTeam.id,
+            name: match.homeTeam.name,
+        },
+        awayTeam: {
+            id: match.awayTeam.id,
+            name: match.awayTeam.name,
+        },
+        matchDay: matchDay,
+        winHome: 0,
+        draw: 0,
+        winAway: 0
+    };
+    // calcolo sui gol fatti
+    for (i = 0; i <= 5; i++) {
+        for (y = 0; y <= 5; y++) {
+            let poissonHome = poissonCalculator(i, parseFloat(homeTeam.mediaGolFatti));
+            let poissonAwaysub = poissonCalculator(i, parseFloat(awayTeam.mediaGolSubiti));
+            // probabilita che la squadra di casa segni due goal piu la probabilità che la squadra ospite prenda due goa
+            let firstres=parseFloat(poissonHome) + parseFloat(poissonAwaysub) 
+
+            let poissonAway = poissonCalculator(y, parseFloat(awayTeam.mediaGolFatti));
+            let poissonHomesub = poissonCalculator(y, parseFloat(awayTeam.mediaGolSubiti));
+            let secondres=parseFloat(poissonAway) + parseFloat(poissonHomesub) 
+
+            
+            if (i > y) {
+                prevision.winHome = parseFloat(prevision.winHome) + (parseFloat(firstres) * parseFloat(secondres));
+            }
+            if (i < y) {
+                prevision.winAway = parseFloat(prevision.winAway) + (parseFloat(firstres) * parseFloat(secondres));
+            }
+            if (i == y) {
+                prevision.draw = parseFloat(prevision.draw) + (parseFloat(firstres) * parseFloat(secondres));
+            }
+        }
+    }
+    return prevision;
+}
+
+
+
+function calculateProbabilityfattisubiti(match, matchDay, homeTeam, awayTeam) {
+    let prevision = {
+        homeTeam: {
+            id: match.homeTeam.id,
+            name: match.homeTeam.name,
+        },
+        awayTeam: {
+            id: match.awayTeam.id,
+            name: match.awayTeam.name,
+        },
+        matchDay: matchDay,
+        winHome: 0,
+        draw: 0,
+        winAway: 0
+    };
+    // calcolo sui gol fatti
+    for (i = 0; i <= 5; i++) {
+        for (y = 0; y <= 5; y++) {
+            let poissonHome = poissonCalculator(i, parseFloat(homeTeam.mediaGolFatti));
+            let poissonAway = poissonCalculator(y, parseFloat(awayTeam.mediaGolFatti));
+            if (i > y) {
+                prevision.winHome = parseFloat(prevision.winHome) + (parseFloat(poissonHome) * parseFloat(poissonAway));
+            }
+            if (i < y) {
+                prevision.winAway = parseFloat(prevision.winHome) + (parseFloat(poissonHome) * parseFloat(poissonAway));
+            }
+            if (i == y) {
+                prevision.draw = parseFloat(prevision.winHome) + (parseFloat(poissonHome) * parseFloat(poissonAway));
+            }
+        }
+    }
+    return prevision;
 }
