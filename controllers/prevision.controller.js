@@ -24,6 +24,52 @@ function poissonCalculator(numerOfGoal, goalAverage) {
     return result.toFixed(3);
 }
 
+exports.get_prevision_lastResult = function (req, res) {
+    let idcomp = req.params.id
+    previsionList = []
+    standing_business.getStanding(idcomp, currentStanding => {
+        if (currentStanding && currentStanding.length > 0) {
+            let matchDay = parseInt(currentStanding[0].playedGames) + 1
+            match_business.getAllPastMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
+
+                let nextMatch = matches.filter(data => {
+                    if (data.matchday == matchDay)
+                        return data
+                })
+
+                nextMatch.map(match => {
+                    //hometeam
+                    let homeTeam = homeTeamStatistics(match, currentStanding);
+                    homeTeam.matchList = matches.filter(data => {
+                        if ((data.homeTeam.id == homeTeam.id || data.awayTeam.id == homeTeam.id) && data.matchday != matchDay)
+                            return data
+                    })
+
+                    //awayteam
+                    let awayTeam = awayTeamStatistics(match, currentStanding);
+                    awayTeam.matchList = matches.filter(data => {
+                        if ((data.homeTeam.id == awayTeam.id || data.awayTeam.id == awayTeam.id) && data.matchday != matchDay)
+                            return data
+                    })
+
+                    homeTeam.statisticScore= calcolaAndamento(homeTeam)
+                    awayTeam.statisticScore= calcolaAndamento(awayTeam)
+
+                    previsionList.push({
+                        homeTeam:homeTeam.name,
+                        awayTeam:awayTeam.name,
+                        homeprev:homeTeam.statisticScore,
+                        awayprev:awayTeam.statisticScore
+                    })
+                })
+
+                // res.send(previsionList);
+                res.send(previsionList);
+            })
+        }
+    })
+}
+
 exports.get_prevision = function (req, res) {
     let idcomp = req.params.id
 
@@ -33,50 +79,20 @@ exports.get_prevision = function (req, res) {
             match_business.getAllMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(nextMatch => {
                 if (nextMatch && nextMatch.length > 0) {
 
-                    previsionList=[]
+                    previsionList = []
 
                     nextMatch.map(match => {
                         //hometeam
-                        let homeTeam = {
-                            id: match.homeTeam.id,
-                            name: match.homeTeam.name,
-                            standing: null,
-                            mediaGolFatti: null,
-                            mediaGolSubiti: null,
-                        }
-                        homeTeam.standing = currentStanding.filter(data => {
-                            if (data.teamId == homeTeam.id)
-                                return data;
-                        })[0]
-
-                        homeTeam.mediaGolFatti = parseInt( homeTeam.standing.goalsFor) / parseInt(homeTeam.standing.playedGames)
-                        homeTeam.mediaGolSubiti = parseInt(homeTeam.standing.goalsAgainst)/ parseInt(homeTeam.standing.playedGames)
+                        let homeTeam = homeTeamStatistics(match, currentStanding);
 
                         //awayteam
-                        let awayTeam = {
-                            id: match.awayTeam.id,
-                            name: match.awayTeam.name,
-                            standing: null,
-                            mediaGolFatti: null,
-                            mediaGolSubiti: null,
-                        }
-                        awayTeam.standing = currentStanding.filter(data => {
-                            if (data.teamId == awayTeam.id)
-                                return data;
-                        })[0]
-                        
-                        
-                        awayTeam.mediaGolFatti = parseInt( awayTeam.standing.goalsFor) / parseInt(awayTeam.standing.playedGames)
-                        awayTeam.mediaGolSubiti = parseInt(awayTeam.standing.goalsAgainst)/ parseInt(awayTeam.standing.playedGames)
+                        let awayTeam = awayTeamStatistics(match, currentStanding);
 
 
                         // poisson calculator
-                        let poiss = poissonCalculator(2, 2.5)
-
                         let prevision = calculateProbability(match, matchDay, homeTeam, awayTeam);
 
                         previsionList.push(prevision)
-
                     })
                     res.send(previsionList);
                 }
@@ -88,6 +104,96 @@ exports.get_prevision = function (req, res) {
 
 
     // res.send(prevision_business.getPrevision(idcomp,null))
+}
+
+function calcolaAndamento(team) {
+    let totalScore=0
+    for (i = 0; i < 6; i++) {
+        currentgame = parseInt(team.standing.playedGames) - i
+        if (currentgame > 0) {
+            let currentmatchday= team.matchList.filter(data => {
+                if (data.matchday == currentgame) {
+                    return data
+                }
+            })[0]
+
+            
+
+            // is home or away
+            let moltipl=(currentgame/2)
+            if(currentmatchday.homeTeam.id ==team.id){
+                // win draw or lose?
+                let result=currentmatchday.score.fullTime
+                if(result.homeTeam>result.awayTeam){
+                    totalScore =totalScore+3*moltipl
+                }
+                if(result.homeTeam==result.awayTeam){
+                    totalScore =totalScore+1*moltipl
+                }
+                if(result.homeTeam<result.awayTeam){
+                    totalScore =totalScore+0
+                }
+            }
+
+            if(currentmatchday.awayTeam.id ==team.id){
+                let result=currentmatchday.score.fullTime
+                if(result.homeTeam>result.awayTeam){
+                    totalScore =totalScore+0
+                }
+                if(result.homeTeam==result.awayTeam){
+                    totalScore =totalScore+1*moltipl
+                }
+                if(result.homeTeam<result.awayTeam){
+                    totalScore =totalScore+3*moltipl
+                }
+            }
+            
+        }
+
+       
+    }
+
+    return totalScore
+    
+}
+
+function awayTeamStatistics(match, currentStanding) {
+    let awayTeam = {
+        id: match.awayTeam.id,
+        name: match.awayTeam.name,
+        standing: null,
+        mediaGolFatti: null,
+        mediaGolSubiti: null,
+        matchList: null,
+        statisticScore:null
+    };
+    awayTeam.standing = currentStanding.filter(data => {
+        if (data.teamId == awayTeam.id)
+            return data;
+    })[0];
+    awayTeam.mediaGolFatti = parseInt(awayTeam.standing.goalsFor) / parseInt(awayTeam.standing.playedGames);
+    awayTeam.mediaGolSubiti = parseInt(awayTeam.standing.goalsAgainst) / parseInt(awayTeam.standing.playedGames);
+    return awayTeam;
+}
+
+function homeTeamStatistics(match, currentStanding) {
+    let homeTeam = {
+        id: match.homeTeam.id,
+        name: match.homeTeam.name,
+        standing: null,
+        mediaGolFatti: null,
+        mediaGolSubiti: null,
+        matchList: null,
+        statisticScore:null
+    };
+    homeTeam.standing = currentStanding.filter(data => {
+        if (data.teamId == homeTeam.id)
+            return data;
+    })[0];
+    homeTeam.mediaGolFatti = parseInt(homeTeam.standing.goalsFor) / parseInt(homeTeam.standing.playedGames);
+    homeTeam.mediaGolSubiti = parseInt(homeTeam.standing.goalsAgainst) / parseInt(homeTeam.standing.playedGames);
+
+    return homeTeam;
 }
 
 function calculateProbability(match, matchDay, homeTeam, awayTeam) {
@@ -111,13 +217,13 @@ function calculateProbability(match, matchDay, homeTeam, awayTeam) {
             let poissonHome = poissonCalculator(i, parseFloat(homeTeam.mediaGolFatti));
             let poissonAwaysub = poissonCalculator(i, parseFloat(awayTeam.mediaGolSubiti));
             // probabilita che la squadra di casa segni due goal piu la probabilità che la squadra ospite prenda due goa
-            let firstres=parseFloat(poissonHome) + parseFloat(poissonAwaysub) 
+            let firstres = parseFloat(poissonHome) + parseFloat(poissonAwaysub)
 
             let poissonAway = poissonCalculator(y, parseFloat(awayTeam.mediaGolFatti));
             let poissonHomesub = poissonCalculator(y, parseFloat(awayTeam.mediaGolSubiti));
-            let secondres=parseFloat(poissonAway) + parseFloat(poissonHomesub) 
+            let secondres = parseFloat(poissonAway) + parseFloat(poissonHomesub)
 
-            
+
             if (i > y) {
                 prevision.winHome = parseFloat(prevision.winHome) + (parseFloat(firstres) * parseFloat(secondres));
             }
