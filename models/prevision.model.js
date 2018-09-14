@@ -3,14 +3,28 @@ var Schema = mongoose.Schema;
 
 
 // create a schema
-var standingSchema = new Schema({
+var previsionSchema = new Schema({
     id: Number,
     competitionId: String,
     competitionName: String,
-    seasonId:String
+    seasonId:String,
+    homeTeam:String,
+
+    awayTeam: String,
+    homeprev:String,
+    awayprev:String,
+
+    homeLast6: String,
+    awayLast6:String,
+    
+    winHome:String,
+    draw:String,
+    winAway:String
 });
 
-var Standing = mongoose.model('Prevision', standingSchema);
 
-module.exports = Standing;
+
+var Prevision = mongoose.model('Prevision', previsionSchema);
+
+module.exports = Prevision;
 

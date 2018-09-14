@@ -24,48 +24,57 @@ function poissonCalculator(numerOfGoal, goalAverage) {
     return result.toFixed(3);
 }
 
+function getStandingFromOfootball(needPrevision, idcomp) {
+    ofootbalBusiness.getStanding(idcomp, function (data) {
+        // salvo
+        standing_business.saveStanding(data.competition, data.standings[0].table, data.season.id)
+
+        if (needPrevision == 'true')
+            createPrevisionFromNewStanding(idcomp,false)
+    })
+}
+
+function createPrevisionFromNewStanding(idcomp,storeprev) {
+    standing_business.getStanding(idcomp, currentStanding => {
+        if (currentStanding && currentStanding.length > 0) {
+            let matchDay = parseInt(currentStanding[0].playedGames) + 1
+            match_business.getAllPastMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
+
+                let nextMatch = getCurrentMatches(matches, matchDay)
+
+                previsionList = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay);
+
+                if (storeprev == "true")
+                    storePrevisions(currentStanding);
+
+                // res.send(previsionList);
+                res.send(previsionList);
+            })
+        }
+    })
+}
+
 exports.get_prevision_lastResult = function (req, res) {
     let idcomp = req.params.id
+    let storeprev = req.params.storeprevision
     previsionList = []
     standing_business.getStanding(idcomp, currentStanding => {
         if (currentStanding && currentStanding.length > 0) {
             let matchDay = parseInt(currentStanding[0].playedGames) + 1
             match_business.getAllPastMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
 
-                let nextMatch = matches.filter(data => {
-                    if (data.matchday == matchDay)
-                        return data
-                })
+                let nextMatch = getCurrentMatches(matches, matchDay)
 
-                nextMatch.map(match => {
-                    //hometeam
-                    let homeTeam = homeTeamStatistics(match, currentStanding);
-                    homeTeam.matchList = matches.filter(data => {
-                        if ((data.homeTeam.id == homeTeam.id || data.awayTeam.id == homeTeam.id) && data.matchday != matchDay)
-                            return data
-                    })
+                previsionList = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay);
 
-                    //awayteam
-                    let awayTeam = awayTeamStatistics(match, currentStanding);
-                    awayTeam.matchList = matches.filter(data => {
-                        if ((data.homeTeam.id == awayTeam.id || data.awayTeam.id == awayTeam.id) && data.matchday != matchDay)
-                            return data
-                    })
-
-                    homeTeam.statisticScore= calcolaAndamento(homeTeam)
-                    awayTeam.statisticScore= calcolaAndamento(awayTeam)
-
-                    previsionList.push({
-                        homeTeam:homeTeam.name,
-                        awayTeam:awayTeam.name,
-                        homeprev:homeTeam.statisticScore,
-                        awayprev:awayTeam.statisticScore
-                    })
-                })
+                if (storeprev == "true")
+                    storePrevisions(previsionList);
 
                 // res.send(previsionList);
                 res.send(previsionList);
             })
+        } else {
+            getStandingFromOfootball(true, idcomp)
         }
     })
 }
@@ -106,55 +115,109 @@ exports.get_prevision = function (req, res) {
     // res.send(prevision_business.getPrevision(idcomp,null))
 }
 
+function createMultiplePrevision(nextMatch, currentStanding, matches, matchDay) {
+    let previsionList = []
+    nextMatch.map(match => {
+        //hometeam
+        let homeTeam = homeTeamStatistics(match, currentStanding);
+        homeTeam.matchList = matches.filter(data => {
+            if ((data.homeTeam.id == homeTeam.id || data.awayTeam.id == homeTeam.id) && data.matchday != matchDay)
+                return data;
+        });
+        //awayteam
+        let awayTeam = awayTeamStatistics(match, currentStanding);
+        awayTeam.matchList = matches.filter(data => {
+            if ((data.homeTeam.id == awayTeam.id || data.awayTeam.id == awayTeam.id) && data.matchday != matchDay)
+                return data;
+        });
+        homeTeam.statisticScore = calcolaAndamento(homeTeam);
+        awayTeam.statisticScore = calcolaAndamento(awayTeam);
+        // poisson calculator
+        let prevision = calculateProbability(match, matchDay, homeTeam, awayTeam);
+        // previsionList.push(prevision)
+        previsionList.push({
+            homeTeam: homeTeam.name,
+            awayTeam: awayTeam.name,
+            homeprev: homeTeam.statisticScore,
+            awayprev: awayTeam.statisticScore,
+            homeLast6: homeTeam.last6result,
+            awayLast6: awayTeam.last6result,
+            winHome: prevision.winHome.toFixed(3),
+            draw: prevision.draw.toFixed(3),
+            winAway: prevision.winAway.toFixed(3)
+        });
+    });
+    return previsionList
+}
+
+function storePrevisions(currentStanding) {
+    prevision_business.savePrevision({
+        id: currentStanding[0].competitionId,
+        name: currentStanding[0].competitionName
+    }, previsionList, currentStanding[0].seasonId);
+}
+
+function getCurrentMatches(matches, matchDay) {
+    return matches.filter(data => {
+        if (data.matchday == matchDay)
+            return data;
+    });
+}
+
 function calcolaAndamento(team) {
-    let totalScore=0
+    let totalScore = 0
     for (i = 0; i < 6; i++) {
+        
         currentgame = parseInt(team.standing.playedGames) - i
         if (currentgame > 0) {
-            let currentmatchday= team.matchList.filter(data => {
+            let currentmatchday = team.matchList.filter(data => {
                 if (data.matchday == currentgame) {
                     return data
                 }
             })[0]
 
-            
-
             // is home or away
-            let moltipl=(currentgame/2)
-            if(currentmatchday.homeTeam.id ==team.id){
+            let moltipl = (6-i )/ 2
+            if (currentmatchday.homeTeam.id == team.id) {
                 // win draw or lose?
-                let result=currentmatchday.score.fullTime
-                if(result.homeTeam>result.awayTeam){
-                    totalScore =totalScore+3*moltipl
+                let result = currentmatchday.score.fullTime
+                if (result.homeTeam > result.awayTeam) {
+                    totalScore = totalScore + 3 * moltipl
+                    team.last6result = team.last6result + 'V '
                 }
-                if(result.homeTeam==result.awayTeam){
-                    totalScore =totalScore+1*moltipl
+                if (result.homeTeam == result.awayTeam) {
+                    totalScore = totalScore + 1 * moltipl
+                    team.last6result = team.last6result + 'D '
                 }
-                if(result.homeTeam<result.awayTeam){
-                    totalScore =totalScore+0
+                if (result.homeTeam < result.awayTeam) {
+                    totalScore = totalScore + 0
+                    team.last6result = team.last6result + 'L '
                 }
             }
 
-            if(currentmatchday.awayTeam.id ==team.id){
-                let result=currentmatchday.score.fullTime
-                if(result.homeTeam>result.awayTeam){
-                    totalScore =totalScore+0
+            if (currentmatchday.awayTeam.id == team.id) {
+                let result = currentmatchday.score.fullTime
+                if (result.homeTeam > result.awayTeam) {
+                    totalScore = totalScore + 0
+                    team.last6result = team.last6result + 'L '
                 }
-                if(result.homeTeam==result.awayTeam){
-                    totalScore =totalScore+1*moltipl
+                if (result.homeTeam == result.awayTeam) {
+                    totalScore = totalScore + 1 * moltipl
+                    team.last6result = team.last6result + 'D '
                 }
-                if(result.homeTeam<result.awayTeam){
-                    totalScore =totalScore+3*moltipl
+                if (result.homeTeam < result.awayTeam) {
+                    totalScore = totalScore + 3 * moltipl
+                    team.last6result = team.last6result + 'V '
                 }
             }
-            
+
         }
 
-       
+
     }
 
     return totalScore
-    
+
 }
 
 function awayTeamStatistics(match, currentStanding) {
@@ -165,7 +228,8 @@ function awayTeamStatistics(match, currentStanding) {
         mediaGolFatti: null,
         mediaGolSubiti: null,
         matchList: null,
-        statisticScore:null
+        statisticScore: null,
+        last6result: ''
     };
     awayTeam.standing = currentStanding.filter(data => {
         if (data.teamId == awayTeam.id)
@@ -184,7 +248,8 @@ function homeTeamStatistics(match, currentStanding) {
         mediaGolFatti: null,
         mediaGolSubiti: null,
         matchList: null,
-        statisticScore:null
+        statisticScore: null,
+        last6result: ''
     };
     homeTeam.standing = currentStanding.filter(data => {
         if (data.teamId == homeTeam.id)
