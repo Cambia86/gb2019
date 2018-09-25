@@ -29,7 +29,7 @@ app.use('/match', match);
 app.use('/standing', standing);
 app.use('/prevision', prevision);
 
-let port = 3005;
+let port = 3001;
 app.listen(port, () => {
     console.log('Server is up and running on port numner ' + port);
 });

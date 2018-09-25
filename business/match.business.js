@@ -17,6 +17,14 @@ var getAllMatchByCompetitionId = function (req, res) {
     })
 }
 
+var getAllMatchByCompetitionId_v2 = function (compIdid, res) {
+
+    return Match.find({ competitionId: compIdid }, function (err, match) {
+        if (err) return next(err);
+        return match
+    })
+}
+
 var getAllMatchByCompetitionIdAndMatchDay = function (compId, matchDay) {
     // let compIdid = req.params.id
     return Match.find({ competitionId: compId, matchday: matchDay }, function (err, match) {
@@ -62,5 +70,6 @@ module.exports = {
     saveMatch: saveMatch,
     getAllMatchByCompetitionId: getAllMatchByCompetitionId,
     getAllMatchByCompetitionIdAndMatchDay: getAllMatchByCompetitionIdAndMatchDay,
-    getAllPastMatchByCompetitionIdAndMatchDay: getAllPastMatchByCompetitionIdAndMatchDay
+    getAllPastMatchByCompetitionIdAndMatchDay: getAllPastMatchByCompetitionIdAndMatchDay,
+    getAllMatchByCompetitionId_v2:getAllMatchByCompetitionId_v2
 }

@@ -8,9 +8,9 @@ var previsionSchema = new Schema({
     competitionId: String,
     competitionName: String,
     seasonId:String,
-    homeTeam:String,
+    homeTeam:Object,
 
-    awayTeam: String,
+    awayTeam: Object,
     homeprev:String,
     awayprev:String,
 
@@ -19,7 +19,9 @@ var previsionSchema = new Schema({
     
     winHome:String,
     draw:String,
-    winAway:String
+    winAway:String,
+
+    score:String
 });
 
 

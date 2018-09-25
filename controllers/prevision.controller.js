@@ -4,52 +4,34 @@ const standing_business = require('../business/standing.business');
 const ofootbalBusiness = require('../oFootball/ofootballbusiness')
 const match_business = require('../business/match.business');
 
-function factorial(num) {
 
-    var result = 1;
-    for (var i = 2; i <= num; i++) {
-        result *= i;
-    }
-    return result;
-}
+exports.get_prevision_result = function (req, res) {
+    let idcomp = req.params.id
+    let matchDay = req.params.matchDay
+    let data = prevision_business.getPrevision(idcomp, matchDay).then(prevision => {
+        // se sono sul mio db le ritorno
+        if (prevision && prevision.length > 0) {
+            // res.send(data);
 
-function poissonCalculator(numerOfGoal, goalAverage) {
-    let e = 2.718
+            match_business.getAllMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
+                if (matches && matches.length > 0) {
 
-    let firts = Math.pow(goalAverage, numerOfGoal)
-    let second = Math.pow(e, goalAverage * -1)
-    let third = factorial(numerOfGoal)
 
-    let result = (firts * second) / third
-    return result.toFixed(3);
-}
+                    let newprevarr = prevision.map(prev => {
+                        matches.map(match => {
+                            if (match.homeTeam.name == prev.homeTeam && match.awayTeam.name == prev.awayTeam) {
+                                prev['score'] = match.score.fullTime.homeTeam + ' - ' + match.score.fullTime.awayTeam
+                            }
 
-function getStandingFromOfootball(needPrevision, idcomp) {
-    ofootbalBusiness.getStanding(idcomp, function (data) {
-        // salvo
-        standing_business.saveStanding(data.competition, data.standings[0].table, data.season.id)
+                        })
+                        return prev
+                    })
 
-        if (needPrevision == 'true')
-            createPrevisionFromNewStanding(idcomp,false)
-    })
-}
-
-function createPrevisionFromNewStanding(idcomp,storeprev) {
-    standing_business.getStanding(idcomp, currentStanding => {
-        if (currentStanding && currentStanding.length > 0) {
-            let matchDay = parseInt(currentStanding[0].playedGames) + 1
-            match_business.getAllPastMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
-
-                let nextMatch = getCurrentMatches(matches, matchDay)
-
-                previsionList = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay);
-
-                if (storeprev == "true")
-                    storePrevisions(currentStanding);
-
-                // res.send(previsionList);
-                res.send(previsionList);
+                    res.send(newprevarr);
+                }
             })
+
+
         }
     })
 }
@@ -65,7 +47,9 @@ exports.get_prevision_lastResult = function (req, res) {
 
                 let nextMatch = getCurrentMatches(matches, matchDay)
 
-                previsionList = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay);
+                let pawg = pointAwerageTeams(currentStanding)
+
+                previsionList = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay, pawg);
 
                 if (storeprev == "true")
                     storePrevisions(previsionList);
@@ -78,6 +62,47 @@ exports.get_prevision_lastResult = function (req, res) {
         }
     })
 }
+
+exports.get_prevision_week = function (req, res) {
+    previsionList = []
+    let majorChampionship = [2002, 2019, 2021, 2015, 2014]
+    majorChampionship.map((championshipId, index) => {
+
+        let idcomp = championshipId
+        let storeprev = req.params.storeprevision
+       
+        standing_business.getStanding(idcomp, currentStanding => {
+            if (currentStanding && currentStanding.length > 0) {
+                let matchDay = parseInt(currentStanding[0].playedGames) + 1
+                match_business.getAllPastMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
+
+                    let nextMatch = getCurrentMatches(matches, matchDay)
+
+                    let pawg = pointAwerageTeams(currentStanding)
+
+                    prevs = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay, pawg);
+                    prevs.map(p=>{
+                        previsionList.push(p)
+                    })
+
+
+                    if (storeprev == "true")
+                        storePrevisions(prevs);
+
+                    if (index == 4) {
+                        // res.send(previsionList);
+                        res.send(previsionList);
+                    }
+                })
+            }
+        })
+
+
+    })
+
+
+}
+
 
 exports.get_prevision = function (req, res) {
     let idcomp = req.params.id
@@ -115,7 +140,58 @@ exports.get_prevision = function (req, res) {
     // res.send(prevision_business.getPrevision(idcomp,null))
 }
 
-function createMultiplePrevision(nextMatch, currentStanding, matches, matchDay) {
+function factorial(num) {
+
+    var result = 1;
+    for (var i = 2; i <= num; i++) {
+        result *= i;
+    }
+    return result;
+}
+
+function poissonCalculator(numerOfGoal, goalAverage) {
+    let e = 2.718
+
+    let firts = Math.pow(goalAverage, numerOfGoal)
+    let second = Math.pow(e, goalAverage * -1)
+    let third = factorial(numerOfGoal)
+
+    let result = (firts * second) / third
+    return result.toFixed(3);
+}
+
+function getStandingFromOfootball(needPrevision, idcomp) {
+    ofootbalBusiness.getStanding(idcomp, function (data) {
+        // salvo
+        standing_business.saveStanding(data.competition, data.standings[0].table, data.season.id)
+
+        if (needPrevision == 'true')
+            createPrevisionFromNewStanding(idcomp, false)
+    })
+}
+
+function createPrevisionFromNewStanding(idcomp, storeprev) {
+    standing_business.getStanding(idcomp, currentStanding => {
+        if (currentStanding && currentStanding.length > 0) {
+            let matchDay = parseInt(currentStanding[0].playedGames) + 1
+            match_business.getAllPastMatchByCompetitionIdAndMatchDay(idcomp, matchDay).then(matches => {
+
+                let nextMatch = getCurrentMatches(matches, matchDay)
+
+                previsionList = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay);
+
+                if (storeprev == "true")
+                    storePrevisions(currentStanding);
+
+                // res.send(previsionList);
+                res.send(previsionList);
+            })
+        }
+    })
+}
+
+
+function createMultiplePrevision(nextMatch, currentStanding, matches, matchDay, pawg) {
     let previsionList = []
     nextMatch.map(match => {
         //hometeam
@@ -130,14 +206,21 @@ function createMultiplePrevision(nextMatch, currentStanding, matches, matchDay) 
             if ((data.homeTeam.id == awayTeam.id || data.awayTeam.id == awayTeam.id) && data.matchday != matchDay)
                 return data;
         });
-        homeTeam.statisticScore = calcolaAndamento(homeTeam);
-        awayTeam.statisticScore = calcolaAndamento(awayTeam);
+        homeTeam.statisticScore = calcolaAndamento(homeTeam, pawg);
+        awayTeam.statisticScore = calcolaAndamento(awayTeam, pawg);
         // poisson calculator
         let prevision = calculateProbability(match, matchDay, homeTeam, awayTeam);
         // previsionList.push(prevision)
         previsionList.push({
-            homeTeam: homeTeam.name,
-            awayTeam: awayTeam.name,
+            homeTeam: {
+                id: homeTeam.id,
+                name: homeTeam.name
+            },
+            awayTeam: {
+                id: awayTeam.id,
+                name: awayTeam.name
+            },
+            matchDay: matchDay,
             homeprev: homeTeam.statisticScore,
             awayprev: awayTeam.statisticScore,
             homeLast6: homeTeam.last6result,
@@ -164,10 +247,33 @@ function getCurrentMatches(matches, matchDay) {
     });
 }
 
-function calcolaAndamento(team) {
+function pointAwerageTeams(standing) {
+    return standing.map(data => {
+        let avgp = parseInt(data.points) / parseInt(data.playedGames)
+        return obj = {
+            team: {
+                id: data.teamId,
+                name: data.teamName
+            },
+            avgPoint: avgp
+        }
+    })
+}
+
+function getawgPointOfTeam(teamId, listAvgPoint) {
+
+    let team = listAvgPoint.filter(data => {
+        if (data.team.id == teamId)
+            return data
+    })[0]
+
+    return team.avgPoint
+}
+
+function calcolaAndamento(team, listAvgPoint) {
     let totalScore = 0
     for (i = 0; i < 6; i++) {
-        
+
         currentgame = parseInt(team.standing.playedGames) - i
         if (currentgame > 0) {
             let currentmatchday = team.matchList.filter(data => {
@@ -177,16 +283,16 @@ function calcolaAndamento(team) {
             })[0]
 
             // is home or away
-            let moltipl = (6-i )/ 2
+            let moltipl = (6 - i) / 2
             if (currentmatchday.homeTeam.id == team.id) {
                 // win draw or lose?
                 let result = currentmatchday.score.fullTime
                 if (result.homeTeam > result.awayTeam) {
-                    totalScore = totalScore + 3 * moltipl
+                    totalScore = totalScore + 3 * moltipl * getawgPointOfTeam(currentmatchday.homeTeam.id, listAvgPoint)
                     team.last6result = team.last6result + 'V '
                 }
                 if (result.homeTeam == result.awayTeam) {
-                    totalScore = totalScore + 1 * moltipl
+                    totalScore = totalScore + 1 * moltipl * getawgPointOfTeam(currentmatchday.homeTeam.id, listAvgPoint)
                     team.last6result = team.last6result + 'D '
                 }
                 if (result.homeTeam < result.awayTeam) {
@@ -202,11 +308,11 @@ function calcolaAndamento(team) {
                     team.last6result = team.last6result + 'L '
                 }
                 if (result.homeTeam == result.awayTeam) {
-                    totalScore = totalScore + 1 * moltipl
+                    totalScore = totalScore + 1 * moltipl * getawgPointOfTeam(currentmatchday.awayTeam.id, listAvgPoint)
                     team.last6result = team.last6result + 'D '
                 }
                 if (result.homeTeam < result.awayTeam) {
-                    totalScore = totalScore + 3 * moltipl
+                    totalScore = totalScore + 3 * moltipl * getawgPointOfTeam(currentmatchday.awayTeam.id, listAvgPoint)
                     team.last6result = team.last6result + 'V '
                 }
             }
