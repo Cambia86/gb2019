@@ -20,8 +20,13 @@ var previsionSchema = new Schema({
     winHome:String,
     draw:String,
     winAway:String,
+    mostLikelyOutcome: String,
+    mostLikelyOutcomeProbability:String,
+    under:Object,
+    over:Object,
 
     score:String
+  
 });
 
 

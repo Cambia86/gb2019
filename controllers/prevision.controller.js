@@ -70,7 +70,7 @@ exports.get_prevision_week = function (req, res) {
 
         let idcomp = championshipId
         let storeprev = req.params.storeprevision
-       
+
         standing_business.getStanding(idcomp, currentStanding => {
             if (currentStanding && currentStanding.length > 0) {
                 let matchDay = parseInt(currentStanding[0].playedGames) + 1
@@ -81,7 +81,7 @@ exports.get_prevision_week = function (req, res) {
                     let pawg = pointAwerageTeams(currentStanding)
 
                     prevs = createMultiplePrevision(nextMatch, currentStanding, matches, matchDay, pawg);
-                    prevs.map(p=>{
+                    prevs.map(p => {
                         previsionList.push(p)
                     })
 
@@ -214,11 +214,15 @@ function createMultiplePrevision(nextMatch, currentStanding, matches, matchDay, 
         previsionList.push({
             homeTeam: {
                 id: homeTeam.id,
-                name: homeTeam.name
+                name: homeTeam.name,
+                under: prevision.homeTeam.under,
+                over: prevision.homeTeam.over
             },
             awayTeam: {
                 id: awayTeam.id,
-                name: awayTeam.name
+                name: awayTeam.name,
+                under: prevision.awayTeam.under,
+                over: prevision.awayTeam.over
             },
             matchDay: matchDay,
             homeprev: homeTeam.statisticScore,
@@ -227,7 +231,9 @@ function createMultiplePrevision(nextMatch, currentStanding, matches, matchDay, 
             awayLast6: awayTeam.last6result,
             winHome: prevision.winHome.toFixed(3),
             draw: prevision.draw.toFixed(3),
-            winAway: prevision.winAway.toFixed(3)
+            winAway: prevision.winAway.toFixed(3),
+            mostLikelyOutcome: prevision.mostLikelyOutcome,
+            mostLikelyOutcomeProbability: prevision.mostLikelyOutcomeProbability
         });
     });
     return previsionList
@@ -335,7 +341,19 @@ function awayTeamStatistics(match, currentStanding) {
         mediaGolSubiti: null,
         matchList: null,
         statisticScore: null,
-        last6result: ''
+        last6result: '',
+        under: {
+            uno_mezzo: 0,
+            due_mezzo: 0,
+            tre_mezzo: 0,
+            quattro_mezzo: 0
+        },
+        over: {
+            uno_mezzo: 0,
+            due_mezzo: 0,
+            tre_mezzo: 0,
+            quattro_mezzo: 0
+        }
     };
     awayTeam.standing = currentStanding.filter(data => {
         if (data.teamId == awayTeam.id)
@@ -355,7 +373,19 @@ function homeTeamStatistics(match, currentStanding) {
         mediaGolSubiti: null,
         matchList: null,
         statisticScore: null,
-        last6result: ''
+        last6result: '',
+        under: {
+            uno_mezzo: 0,
+            due_mezzo: 0,
+            tre_mezzo: 0,
+            quattro_mezzo: 0
+        },
+        over: {
+            uno_mezzo: 0,
+            due_mezzo: 0,
+            tre_mezzo: 0,
+            quattro_mezzo: 0
+        }
     };
     homeTeam.standing = currentStanding.filter(data => {
         if (data.teamId == homeTeam.id)
@@ -372,15 +402,46 @@ function calculateProbability(match, matchDay, homeTeam, awayTeam) {
         homeTeam: {
             id: match.homeTeam.id,
             name: match.homeTeam.name,
+            under: {
+                zero_mezzo:0,
+                uno_mezzo: 0,
+                due_mezzo: 0,
+                tre_mezzo: 0,
+                quattro_mezzo: 0
+            },
+            over: {
+                zero_mezzo:0,
+                uno_mezzo: 0,
+                due_mezzo: 0,
+                tre_mezzo: 0,
+                quattro_mezzo: 0
+            }
         },
         awayTeam: {
             id: match.awayTeam.id,
             name: match.awayTeam.name,
+            under: {
+                zero_mezzo:0,
+                uno_mezzo: 0,
+                due_mezzo: 0,
+                tre_mezzo: 0,
+                quattro_mezzo: 0
+            },
+            over: {
+                zero_mezzo:0,
+                uno_mezzo: 0,
+                due_mezzo: 0,
+                tre_mezzo: 0,
+                quattro_mezzo: 0
+            }
         },
         matchDay: matchDay,
         winHome: 0,
         draw: 0,
-        winAway: 0
+        winAway: 0,
+        mostLikelyOutcome: 0,
+        mostLikelyOutcomeProbability: 0,
+
     };
     // calcolo sui gol fatti
     for (i = 0; i <= 5; i++) {
@@ -394,18 +455,78 @@ function calculateProbability(match, matchDay, homeTeam, awayTeam) {
             let poissonHomesub = poissonCalculator(y, parseFloat(awayTeam.mediaGolSubiti));
             let secondres = parseFloat(poissonAway) + parseFloat(poissonHomesub)
 
-
+            let probabilityResult = (parseFloat(firstres) * parseFloat(secondres))
             if (i > y) {
-                prevision.winHome = parseFloat(prevision.winHome) + (parseFloat(firstres) * parseFloat(secondres));
+                prevision.winHome = parseFloat(prevision.winHome) + probabilityResult;
             }
             if (i < y) {
-                prevision.winAway = parseFloat(prevision.winAway) + (parseFloat(firstres) * parseFloat(secondres));
+                prevision.winAway = parseFloat(prevision.winAway) + probabilityResult;
             }
             if (i == y) {
-                prevision.draw = parseFloat(prevision.draw) + (parseFloat(firstres) * parseFloat(secondres));
+                prevision.draw = parseFloat(prevision.draw) + probabilityResult;
+            }
+
+            if (probabilityResult > prevision.mostLikelyOutcomeProbability) {
+                prevision.mostLikelyOutcomeProbability = probabilityResult
+                prevision.mostLikelyOutcome = i + ' - ' + y
             }
         }
     }
+
+    homeTeam.matchList.map(match => {
+        if (match.score.fullTime.homeTeam != null && match.score.fullTime.awayTeam != null) {
+            let sumGoal = match.score.fullTime.homeTeam + match.score.fullTime.awayTeam
+            if (sumGoal > 0.5)
+            prevision.homeTeam.over.zero_mezzo = prevision.homeTeam.over.zero_mezzo + 1
+            if (sumGoal > 1.5)
+                prevision.homeTeam.over.uno_mezzo = prevision.homeTeam.over.uno_mezzo + 1
+            if (sumGoal > 2.5)
+                prevision.homeTeam.over.due_mezzo = prevision.homeTeam.over.due_mezzo + 1
+            if (sumGoal > 3.5)
+                prevision.homeTeam.over.tre_mezzo = prevision.homeTeam.over.tre_mezzo + 1
+            if (sumGoal > 4.5)
+                prevision.homeTeam.over.quattro_mezzo = prevision.homeTeam.over.quattro_mezzo + 1
+                if (sumGoal < 0.5)
+                prevision.homeTeam.under.zero_mezzo = prevision.homeTeam.under.zero_mezzo + 1
+            if (sumGoal < 1.5)
+                prevision.homeTeam.under.uno_mezzo = prevision.homeTeam.under.uno_mezzo + 1
+            if (sumGoal < 2.5)
+                prevision.homeTeam.under.due_mezzo = prevision.homeTeam.under.due_mezzo + 1
+            if (sumGoal < 3.5)
+                prevision.homeTeam.under.tre_mezzo = prevision.homeTeam.under.tre_mezzo + 1
+            if (sumGoal < 4.5)
+                prevision.homeTeam.under.quattro_mezzo = prevision.homeTeam.under.quattro_mezzo + 1
+        }
+    })
+
+    awayTeam.matchList.map(match => {
+        if (match.score.fullTime.homeTeam != null && match.score.fullTime.awayTeam != null) {
+            let sumGoal = match.score.fullTime.homeTeam + match.score.fullTime.awayTeam
+            if (sumGoal > 0.5)
+            prevision.awayTeam.over.zero_mezzo = prevision.awayTeam.over.zero_mezzo + 1
+            if (sumGoal > 1.5)
+                prevision.awayTeam.over.uno_mezzo = prevision.awayTeam.over.uno_mezzo + 1
+            if (sumGoal > 2.5)
+                prevision.awayTeam.over.due_mezzo = prevision.awayTeam.over.due_mezzo + 1
+            if (sumGoal > 3.5)
+                prevision.awayTeam.over.tre_mezzo = prevision.awayTeam.over.tre_mezzo + 1
+            if (sumGoal > 4.5)
+                prevision.awayTeam.over.quattro_mezzo = prevision.awayTeam.over.quattro_mezzo + 1
+                if (sumGoal < 0.5)
+                prevision.awayTeam.under.zero_mezzo = prevision.awayTeam.under.zero_mezzo + 1
+            if (sumGoal < 1.5)
+                prevision.awayTeam.under.uno_mezzo = prevision.awayTeam.under.uno_mezzo + 1
+            if (sumGoal < 2.5)
+                prevision.awayTeam.under.due_mezzo = prevision.awayTeam.under.due_mezzo + 1
+            if (sumGoal < 3.5)
+                prevision.awayTeam.under.tre_mezzo = prevision.awayTeam.under.tre_mezzo + 1
+            if (sumGoal < 4.5)
+                prevision.awayTeam.under.quattro_mezzo = prevision.awayTeam.under.quattro_mezzo + 1
+        }
+    })
+
+
+
     return prevision;
 }
 
