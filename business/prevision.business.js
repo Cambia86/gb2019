@@ -3,21 +3,29 @@ const Prevision = require('../models/prevision.model');
 
 var getPrevision = function (competitionId, matchday) {
 
-    return Prevision.find({ competitionId: competitionId }, function (err, prev) {
+    return Prevision.find({}, function (err, prev) {
         if (err) return next(err);
         return prev
     })
+    // return Prevision.find({ competitionId: competitionId }, function (err, prev) {
+    //     if (err) return next(err);
+    //     return prev
+    // })
 }
 
 
 var savePrevision = function (competition, prevision, seasonId) {
     prevision.map(data => {
-        let stand = new Prevision(
+        let prev = new Prevision(
             {
                 id: data.id,
                 competitionId: competition.id,
                 competitionName: competition.name,
                 seasonId: seasonId,
+
+                matchDay:data.matchDay,
+                homeTeamName: data.homeTeam.name,
+                awayTeamName: data.awayTeam.name,
                 homeTeam: data.homeTeam,
 
                 awayTeam: data.awayTeam,
@@ -30,10 +38,12 @@ var savePrevision = function (competition, prevision, seasonId) {
                 winHome: data.winHome,
                 draw: data.draw,
                 winAway: data.winAway,
+                mostLikelyOutcome: data.mostLikelyOutcome,
+                mostLikelyOutcomeProbability: data.mostLikelyOutcomeProbability,
             }
         );
 
-        stand.save(function (err) {
+        prev.save(function (err) {
             if (err)
                 return {}
             else
